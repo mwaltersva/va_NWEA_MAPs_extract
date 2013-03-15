@@ -1,0 +1,14 @@
+~[tlist_sql;
+SELECT
+	sec.id secid,
+	t.lastfirst || ' - '  || terms.abbreviation || ' - ' || sec.expression val
+FROM sections sec
+JOIN teachers t ON t.id = sec.teacher
+JOIN terms ON terms.id = sec.termid AND terms.schoolid = sec.schoolid
+WHERE
+	sec.schoolid = ~(curschoolid)
+	AND sec.course_number IN (~[gpv:cnum])
+	AND terms.yearid = ~(curyearid)
+ORDER BY terms.abbreviation, t.lastfirst, sec.course_number ASC;]
+<option value="~(secid)">~(val)</option>
+[/tlist_sql]

@@ -1,0 +1,255 @@
+~[if#pageaction.~[gpv:action]#getresults]
+<!DOCTYPE html>
+<html>
+<head>
+<!--[CRM BEGIN]-->
+<title>MAPS Extract Test</title>
+<meta name="author" content="Matt Walters" />
+<meta name="description" content="MAPS Extract Test" />
+<meta name="version" content="12.12" />
+<meta name="reportname" content="MAPS Extract Test" />
+<meta name="schoolreport" />
+<!--[CRM END]-->
+<link href="/images/css/screen.css" rel="stylesheet" media="screen">
+<link href="/images/css/print.css" rel="stylesheet" media="print">
+<link rel="stylesheet" href="/images/css/theme/crm-css/jquery-ui.custom.css" type="text/css">
+<link rel="stylesheet" href="/admin/includes/template/reports-common.css" type="text/css" media="all">
+<link rel="stylesheet" href="/admin/includes/template/reports-printable.css" type="text/css" media="print">
+<style type="text/css">
+.stuitalic {
+font-style: italic;
+border-style:solid;
+border-width:1px;
+}
+.studentrow {
+border-style:solid;
+border-width:1px;
+}
+.headerrow {
+border-style:solid;
+border-width:2px;
+} 
+.avgrow {
+border-style:solid;
+border-width:2px;
+} 
+</style>
+~[x:insertfile;/scripts/custom-jquery-1.0.html]
+~[x:insertfile;/scripts/custom-datatables-1.0.html]
+~[x:insertfile;/admin/includes/template/reports-commonscripts.html]
+<script type="text/javascript">
+(function($){
+	var reportdataURL ='/~[self]';
+	var pageseperator ='<hr class="noprint pageseperator" /><div class="pbreak"><span style="display: none">&nbsp;</span></div>';
+	var totalreports = 0;
+
+	$(function(){
+		$('#params_container').accordion({collapsible:true,autoHeight:false});
+		$('input:submit').button({label:"Submit"});
+		$('.datepicker').datepicker({
+			dateFormat: convertOracleDF('~[gpv:dateformat]')
+		});
+		$('#ui-datepicker-div').hide();//Bug in jQuery UI 1.8.9 causes datepicker div to be visible upon creation
+		$('#params').submit(function(){
+			clearError();
+			$("#reportresult").empty();
+			$("#reportresult").html('<span id="loader">Loading <img src="' +$("#busyimage").attr("src")+'" /></span>');
+			var settings = $('#params').serializeObject();
+			$.get(reportdataURL, settings
+			)
+			.done(processReportResults)
+			.fail(function(xhr, status, error){
+				$('#loader').hide();
+				displayError("Report failed to load. Status Message: " +status);
+			});
+			return false; //override regular form submission
+		});
+	});//end jquery.ready
+	  
+	function processReportResults(data){
+		$('#reportresult').html(data);
+		$('#reportresult table').addClass('display').dataTable({
+			"bPaginate": false,
+			"bFilter": false,
+			"bJQueryUI": true,
+			"sDom": 'T<"H"fr>t<"F"ip>',
+			"oTableTools": {
+				"sSwfPath":"/scripts/tabletools/swf/copy_cvs_xls_pdf.swf"
+			}
+		});
+	}
+	function displayError(msg){
+		$('#error_container').html('<div id="alertmsg" style="padding: 0pt 0.7em;" class="ui-state-error ui-corner-all"><p><span style="float: left; margin-right: 0.3em;" class="ui-icon ui-icon-alert"></span><strong>Alert: </strong>'+msg+'</p></div>').show();
+	}
+	function clearError(){
+		$('#error_container').empty().hide();
+	}
+})(jQuery);
+</script>
+~[wc:commonscripts]
+</head>
+<body>
+~[x:insertfile;/admin/includes/template/admin_reportheader_start.html]
+SOL Data Upload
+~[x:insertfile;/admin/includes/template/admin_reportheader_end.html]
+
+<!-- Begin content -->
+<img id="busyimage" style="display:none;" src="/images/busy_blue.gif" />
+	
+<div id="reportcontent" class="rounded_block">
+<h2 class="noprint">SOL Data Upload</h2>
+
+<!-- Begin report parameters-->
+<form class="noprint" name="params" id="params" method="GET" action="#" target="_blank">
+<div id="params_container" class="noprint">
+	<h3><a href="#">Report Parameters</a></h3>
+	<div id="paramsinner_container">
+		<table>
+			<tr>
+				<td>Course</td>
+				<td>
+					<select name="course" id="courseSelect" multiple="multiple">
+						<option value="">Select a course</option>
+						~[tlist_sql;
+							SELECT
+								c.course_number cnum,
+								c.course_name cnam
+							FROM courses c
+							JOIN schools schl ON schl.activecrslist || chr(59) LIKE '%' || chr(59) || c.course_number || chr(59) || '%'
+							JOIN sections sec ON c.course_number = sec.course_number
+							JOIN terms ON terms.id = sec.termid AND terms.schoolid = sec.schoolid
+							WHERE
+								schl.school_number = ~(curschoolid)
+								AND (c.credittype IN ('MA', 'ENG') OR c.course_number = 'HR100')
+								AND terms.yearid = ~(curyearid)
+							GROUP BY c.course_number, c.course_name
+							HAVING count(sec.id) > 0
+							ORDER BY c.course_name ASC;]
+							<option value="~(cnum)">~(cnam)</option>
+						[/tlist_sql]
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<td>Sections</td>
+				<td>
+					<select id="sectionSelect" name="sections" multiple="multiple">
+						<option>Please choose a course</option>
+					</select>
+				</td>
+			</tr>
+		</table>
+		<input type="hidden" name="sectionList" value="" id="sectionText"></input>
+		<input type="hidden" name="courselist" value="" id="courseText"></input>
+		<input type="hidden" name="dothisfor" value="selected" />
+		<input type="hidden" name="action" value="getresults" />
+		<input type="hidden" name="dateformat" value="~[gpv:dateformat]" />
+		<input value="Submit" type="submit" />
+	</div>
+</div>
+</form>
+<!-- End report parameters-->
+<div id="error_container"></div>
+<div id="reportresult" class="rounded_block">Waiting for report parameters.</div>
+
+</div>
+
+<!-- end content -->
+~[x:insertfile;/admin/includes/template/pds_copyright_footer.html]
+</body>
+<script type="text/javascript">
+var $j = jQuery.noConflict();
+$j('#courseSelect').change(function() {
+	$j('#courseText').val($j("option:selected").map(function(){ return "'" + this.value + "'" }).get().join(","));
+	$j('#sectionSelect').load("mapsSectionData.html?cnum=" + $j('#courseText').val());
+});
+$j('#sectionSelect').change(function() {
+	$j('#sectionText').val($j("#sectionSelect option:selected").map(function(){ return this.value }).get().join(", "));
+});
+</script>
+</html>
+[else#pageaction]
+<table border="1" cellspacing="0" cellpadding="4" class="tablesorter" id="tablesorter">
+<thead> 
+	<tr>
+		<th>School Name</th>
+		<th>Prev Instructor<br />ID</th>
+		<th>Instructor ID</th>
+		<th>Instructor<br />Last name</th>
+		<th>Instructor<br />First Name</th>
+		<th>Instructor<br />Middle Initial</th>
+		<th>Username</th>
+		<th>Instructor<br />Email Address</th>
+		<th>Class Name</th>
+		<th>Prev Student<br />ID</th>
+		<th>Student ID</th>
+		<th>Student <br />Last Name</th>
+		<th>Student <br />First_name</th>
+		<th>Student <br />Middle Initial</th>
+		<th>Student <br />DOB</th>
+		<th>Student Gender</th>
+		<th>Student <br />Grade Level</th>
+		<th>Student Ethnicity</th>
+	</tr>
+</thead>
+<tbody>
+	~[tlist_sql;
+		SELECT
+		  schl.name As SchoolName,
+		  NULL As PrevInstructorId,
+		  t.id As InstructorId,
+		  t.last_name As InstructorLastName,
+		  t.first_name As InstructorFirstName,
+		  substr(t.middle_name,1,1) As InstructorMiddleInitial,
+		  t.email_addr As UserName,
+		  t.email_Addr As EmailAddress,
+		  t.lastfirst || ' - ' || regexp_replace(sec.expression, '\(|\)', '') As ClassName,
+		  NULL As PrevStudentId,
+		  s.student_number As StudentId,
+		  s.last_name As StudentLastName,
+		  s.first_name As StudentFirstName,
+		  substr(s.middle_name, 1,1) As StudentMiddleInitial,
+		  to_char(s.dob, 'MM/DD/YYYY') As StudentDateOfBirth,
+		  s.gender As StudentGender,
+		  s.grade_level As StudentGradeLevel,
+		  CASE
+			WHEN s.fedethnicity = 1 THEN 'Hispanic or Latino'
+			WHEN s.fedethnicity = 0 AND ps_customfields.getstudentscf(s.id, 'va_ercode') = '01' THEN 'American Indian or Alaska Native'
+			WHEN s.fedethnicity = 0 AND ps_customfields.getstudentscf(s.id, 'va_ercode') = '02' THEN 'Asian'
+			WHEN s.fedethnicity = 0 AND ps_customfields.getstudentscf(s.id, 'va_ercode') = '03' THEN 'Black or African American'
+			WHEN s.fedethnicity = 0 AND ps_customfields.getstudentscf(s.id, 'va_ercode') = '05' THEN 'White'
+			WHEN s.fedethnicity = 0 AND ps_customfields.getstudentscf(s.id, 'va_ercode') = '06' THEN 'Native Hawaiian or Other Pacific Islander'
+			WHEN s.fedethnicity = 0 AND ps_customfields.getstudentscf(s.id, 'va_ercode') IS NULL THEN 'Not Specified or Other'
+			ELSE 'Multi-ethnic' END As StudentEthnicGroupName
+		FROM students s
+		JOIN cc ON cc.studentid = s.id
+		JOIN sections sec ON sec.id = cc.sectionid
+		JOIN teachers t ON t.id = sec.teacher
+		JOIN schools schl ON schl.school_number = cc.schoolid
+		WHERE
+		  s.enroll_status = 0
+		  AND sec.id IN (~[gpv:Sectionlist]);]
+		<tr>
+			<td>~(schoolname)</td>
+			<td>~(prevInstructorId)</td>
+			<td>~(instructorId)</td>
+			<td>~(instructorLastName)</td>
+			<td>~(instructorFirstName)</td>
+			<td>~(instructorMiddleInitial)</td>
+			<td>~(username)</td>
+			<td>~(emailaddress)</td>
+			<td>~(classname)</td>
+			<td>~(prevstudentid)</td>
+			<td>~(studentid)</td>
+			<td>~(studentlastname)</td>
+			<td>~(studentfirstname)</td>
+			<td>~(studentmiddleinitial)</td>
+			<td>~(studentdateofbirth)</td>
+			<td>~(studentgender)</td>
+			<td>~(studentgradelevel)</td>
+			<td>~(studentethnicgroupname)</td>
+		</tr>
+	[/tlist_sql]
+</tbody>
+</table>
+[/if#pageaction]
